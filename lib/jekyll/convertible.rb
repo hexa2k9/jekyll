@@ -23,14 +23,14 @@ module Jekyll
     def read_yaml(base, name)
       self.content = File.read(File.join(base, name))
 
-      if self.content =~ /^(---\s*\n.*?\n?)^(---\s*$\n?)/m
-        self.content = self.content[($1.size + $2.size)..-1]
+      begin
+        if self.content =~ /^(---\s*\n.*?\n?)^(---\s*$\n?)/m
+          self.content = self.content[($1.size + $2.size)..-1]
 
-        begin
           self.data = YAML.load($1)
-        rescue => e
-          puts "YAML Exception: #{e.message}"
         end
+      rescue ArgumentError
+        STDERR.puts "The contents of post #{name} are causing some problems. Most likely it has characters that are invalid UTF-8. Please correct this and try again."
       end
 
       self.data ||= {}
@@ -67,13 +67,7 @@ module Jekyll
       # render and transform content (this becomes the final content of the object)
       payload["pygments_prefix"] = converter.pygments_prefix
       payload["pygments_suffix"] = converter.pygments_suffix
-      
-      begin
-        self.content = Liquid::Template.parse(self.content).render(payload, info)
-      rescue => e
-        puts "Liquid Exception: #{e.message} in #{self.data["layout"]}"
-      end
-      
+      self.content = Liquid::Template.parse(self.content).render(payload, info)
       self.transform
 
       # output keeps track of what will finally be written
@@ -83,12 +77,7 @@ module Jekyll
       layout = layouts[self.data["layout"]]
       while layout
         payload = payload.deep_merge({"content" => self.output, "page" => layout.data})
-
-        begin
-          self.output = Liquid::Template.parse(layout.content).render(payload, info)
-        rescue => e
-          puts "Liquid Exception: #{e.message} in #{self.data["layout"]}"
-        end
+        self.output = Liquid::Template.parse(layout.content).render(payload, info)
 
         layout = layouts[layout.data["layout"]]
       end
